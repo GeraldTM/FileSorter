@@ -186,9 +186,12 @@ def sortByEXIF(path, pathto):
             try: 
                 date = datetime.datetime.fromtimestamp(Image.open(path + "\\" + file).getexif().get(36867)).strftime("%Y")
             except PermissionError as e:
-                messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
-                errors += 1
-                continue
+                try: 
+                    date = datetime.datetime.fromtimestamp(os.path.getctime(path + "\\" + file)).strftime("%Y")
+                except PermissionError as e:
+                    messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
+                    errors += 1
+                    continue
             
         except UnidentifiedImageError: # If file is not a photo
             try: 
