@@ -15,7 +15,7 @@
 import datetime,json, shutil, tkinter as tk, os
 from posixpath import abspath
 
-from tkinterdnd2 import DND_FILES, TkinterDnD
+#from tkinterdnd2 import DND_FILES, TkinterDnD
 from tkinter import *
 from tkinter import ttk, messagebox
 from PIL import Image,UnidentifiedImageError
@@ -24,7 +24,7 @@ from PIL import Image,UnidentifiedImageError
 
 
 # Set up tkinter window
-app = TkinterDnD.Tk()
+app = tk.Tk()
 app.title("FileSorter")
 app.iconbitmap(True,"icon.ico")
 app.resizable(width=False, height=False)
@@ -88,10 +88,9 @@ def sortByPath(path, pathto):
 
 
 def sortByYear(path, pathto):
-    # Get sort path
+# Get sort path
     files = os.listdir(path)
     # get percentage of files
-    errors = 0
     try:
         progressInterval = 100/len(files)
     except ZeroDivisionError:
@@ -101,15 +100,22 @@ def sortByYear(path, pathto):
     sortProgress = ttk.Progressbar(sortFrame, orient="horizontal", length=200, mode="determinate")
     sortProgress.grid(column=1, row=0, sticky=(W, E))
     # Sort files
+    errors = 0
     for file in files:
-        #Get creation date
-        date = datetime.datetime.fromtimestamp(os.path.getctime(path + "\\" + file)).strftime("%Y")
+        #Get photo taken date
+        try: 
+            date = datetime.datetime.fromtimestamp(os.path.getctime(path + "\\" + file)).strftime("%Y")
+        except PermissionError as e:
+            messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
+            errors += 1
+            continue
+        
         # Create folder if it doesn't exist
         if pathto + "\\" + date != path + "\\" + file:
             try:
                 os.mkdir(pathto + "\\" + date)
             except FileExistsError:
-                continue
+                pass
             except FileNotFoundError:
                 try:
                     os.mkdir(pathto)
@@ -120,42 +126,41 @@ def sortByYear(path, pathto):
                 
             except PermissionError as e:
                 messagebox.showerror("Error", "Permission denied!" + "\n" + e)
-                continue
+                break
             # Move file to folder
             if keepOGFiles.get():
                 try:
                     shutil.copy2(path + "\\" + file, pathto + "\\" + date + "\\" + file)
                 except shutil.Error as e :
                     messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
-                    continue
+                    errors += 1
+                
             else:    
                 try:    
                     shutil.move(path + "\\" + file, pathto + "\\" + date + "\\" + file, copy_function= shutil.copy2)
                 except shutil.Error as e:
                     messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
-                    continue
+                    errors += 1
                 # Update progress bar
+            sortProgress["value"] += progressInterval
+            sortProgress.update()
         else:
             errors += 1
-
-        sortProgress["value"] += progressInterval
-        sortProgress.update()
-    # close window when finished
-    #create finished dialog window
-
+            sortProgress["value"] += progressInterval
+            sortProgress.update()
+    # Reset sort to path entry
     ttk.Label(sortFrame, text="Sort to: ").grid(column=0, row=0, sticky=W)
     sortPath = ttk.Entry(sortFrame, width=50)
     sortPath.grid(column=1, row=0, sticky=(W, E))
-
+    #create finished dialog window
     doneWindow = Toplevel(app)
     doneWindow.title("Done!")
     doneFrame = ttk.Frame(doneWindow, padding="3 3 12 12")
     doneFrame.grid(column=3, row=0, sticky=(N, W, E, S))
     doneWindow.columnconfigure(0, weight=1)
     doneWindow.rowconfigure(0, weight=1)
-    ttk.Label(doneFrame, text="Done!").grid(column=1, row=0, sticky=W)
-    ttk.Label(doneFrame, text="Sorting Complete! Sorted " + str(len(files)-errors) + " files.").grid(column=2, row=0, sticky=W)
-    ttk.Button(doneFrame, text="Close", command=doneWindow.destroy).grid(column=3, row=0, sticky=W)
+    ttk.Label(doneFrame, text="Sorting Complete! Sorted " + str(len(files)- errors) + " files.").grid(column=0, row=1, sticky=W)
+    ttk.Button(doneFrame, text="Close", command=doneWindow.destroy).grid(column=0, row=3, sticky=E)
 
 
 
