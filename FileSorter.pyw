@@ -88,7 +88,8 @@ def sortByPath(path, pathto):
 
 
 def sortByYear(path, pathto):
-# Get sort path
+    blacklist = []
+    # Get sort path
     files = os.listdir(path)
     # get percentage of files
     try:
@@ -111,7 +112,7 @@ def sortByYear(path, pathto):
             continue
         
         # Create folder if it doesn't exist
-        if pathto + "\\" + date != path + "\\" + file:
+        if pathto + "\\" + date not in blacklist:
             try:
                 os.mkdir(pathto + "\\" + date)
             except FileExistsError:
@@ -123,6 +124,7 @@ def sortByYear(path, pathto):
                 except FileNotFoundError as e:
                     messagebox.showerror("Error", "Path not found!" + pathto +"\n" + e)
                     break
+                blacklist.append(pathto + "\\" + date)
                 
             except PermissionError as e:
                 messagebox.showerror("Error", "Permission denied!" + "\n" + e)
@@ -131,6 +133,12 @@ def sortByYear(path, pathto):
             if keepOGFiles.get():
                 try:
                     shutil.copy2(path + "\\" + file, pathto + "\\" + date + "\\" + file)
+                except PermissionError:
+                    try: 
+                        shutil.copytree(path + "\\" + file, pathto + "\\" + date + "\\" + file)
+                    except shutil.Error as e:
+                        messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
+                        errors += 1
                 except shutil.Error as e :
                     messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
                     errors += 1
@@ -169,6 +177,7 @@ def sortByYear(path, pathto):
 def sortByEXIF(path, pathto):
     # Get sort path
     files = os.listdir(path)
+    blacklist = []
     # get percentage of files
     try:
         progressInterval = 100/len(files)
@@ -193,7 +202,7 @@ def sortByEXIF(path, pathto):
                     errors += 1
                     continue
             except TypeError as e:
-                messagebox.showerror("Error", "Error reading EXIF data!" + "\n" + str(e))
+                #messagebox.showerror("Error", "Error reading EXIF data!" + "\n" + str(e))
                 date = datetime.datetime.fromtimestamp(os.path.getctime(path + "\\" + file)).strftime("%Y")
 
         except UnidentifiedImageError: # If file is not a photo
@@ -203,11 +212,12 @@ def sortByEXIF(path, pathto):
                 messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
                 errors += 1
                 continue
-        
+            blacklist.append(pathto + "\\" + date)
         # Create folder if it doesn't exist
-        if pathto + "\\" + date != path + "\\" + file:
+        if pathto + "//" + file not in blacklist:
             try:
                 os.mkdir(pathto + "\\" + date)
+                
             except FileExistsError:
                 pass
             except FileNotFoundError:
@@ -217,10 +227,11 @@ def sortByEXIF(path, pathto):
                 except FileNotFoundError as e:
                     messagebox.showerror("Error", "Path not found!" + pathto +"\n" + e)
                     break
-                
+            
             except PermissionError as e:
                 messagebox.showerror("Error", "Permission denied!" + "\n" + e)
-                break
+                continue
+
             # Move file to folder
             if keepOGFiles.get():
                 try:
@@ -228,7 +239,9 @@ def sortByEXIF(path, pathto):
                 except shutil.Error as e :
                     messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
                     errors += 1
-                
+                except PermissionError as e:
+                    messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
+                    errors += 1
             else:    
                 try:    
                     shutil.move(path + "\\" + file, pathto + "\\" + date + "\\" + file, copy_function= shutil.copy2)
