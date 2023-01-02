@@ -1,15 +1,16 @@
 # Welcome to FileSorter!
 # This program will sort files, the way you want them sorted!
-#Copyright © 2022 GeraldTM
-#This program is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
+# Copyright © 2022 GeraldTM
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-#This program is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 
 
 import datetime,json, shutil, tkinter as tk, os
@@ -74,23 +75,25 @@ buttonframe.grid(column=0, row=3, sticky=(S,W,E), columnspan= 2)
 ttk.Button(buttonframe, text="Sort", command=lambda: sortByPath(pathEntry.get(), sortPath.get())).grid(column=1, row=0, sticky=(E,S))
 ttk.Label(buttonframe, text="Copyright © GeraldTM 2022").grid(column=0, row=0, sticky=(W,S))
 
+def listdirpath(path):
+    return [str(os.path.join(path, f)) for f in os.listdir(path)]
+
 def sortByPath(path, pathto):
-  
+    files = listdirpath(path)
     if(selectedSortType.get() == "time"):
-        sortByYear(path, pathto)
+        sortByYear(files, pathto)
     elif(selectedSortType.get() == "photo"):
-        sortByEXIF(path, pathto)
+        sortByEXIF(files, pathto)
     elif(selectedSortType.get() == "name"):
         sortByName()
 
 
 
 
-
-def sortByYear(path, pathto):
+def sortByYear(files, pathto):
     blacklist = []
     # Get sort path
-    files = os.listdir(path)
+
     # get percentage of files
     try:
         progressInterval = 100/len(files)
@@ -105,7 +108,7 @@ def sortByYear(path, pathto):
     for file in files:
         #Get photo taken date
         try: 
-            date = datetime.datetime.fromtimestamp(os.path.getctime(path + "\\" + file)).strftime("%Y")
+            date = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime("%Y")
         except PermissionError as e:
             messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
             errors += 1
@@ -132,10 +135,10 @@ def sortByYear(path, pathto):
             # Move file to folder
             if keepOGFiles.get():
                 try:
-                    shutil.copy2(path + "\\" + file, pathto + "\\" + date + "\\" + file)
+                    shutil.copy2(file, pathto + "\\" + date + "\\" + file)
                 except PermissionError:
                     try: 
-                        shutil.copytree(path + "\\" + file, pathto + "\\" + date + "\\" + file)
+                        shutil.copytree(file, pathto + "\\" + date + "\\" + file)
                     except shutil.Error as e:
                         messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
                         errors += 1
@@ -145,7 +148,7 @@ def sortByYear(path, pathto):
                 
             else:    
                 try:    
-                    shutil.move(path + "\\" + file, pathto + "\\" + date + "\\" + file, copy_function= shutil.copy2)
+                    shutil.move(file, pathto + "\\" + date + "\\" + file, copy_function= shutil.copy2)
                 except shutil.Error as e:
                     messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
                     errors += 1
@@ -174,9 +177,9 @@ def sortByYear(path, pathto):
 
 
 
-def sortByEXIF(path, pathto):
+def sortByEXIF(files, pathto):
     # Get sort path
-    files = os.listdir(path)
+
     blacklist = []
     # get percentage of files
     try:
@@ -193,21 +196,21 @@ def sortByEXIF(path, pathto):
         #Get photo taken date
         try:
             try: 
-                date = datetime.datetime.fromtimestamp(Image.open(path + "\\" + file).getexif().get(36867)).strftime("%Y")
+                date = datetime.datetime.fromtimestamp(Image.open(file).getexif().get(36867)).strftime("%Y")
             except PermissionError:
                 try: 
-                    date = datetime.datetime.fromtimestamp(os.path.getctime(path + "\\" + file)).strftime("%Y")
+                    date = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime("%Y")
                 except PermissionError as e:
                     messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
                     errors += 1
                     continue
             except TypeError as e:
                 #messagebox.showerror("Error", "Error reading EXIF data!" + "\n" + str(e))
-                date = datetime.datetime.fromtimestamp(os.path.getctime(path + "\\" + file)).strftime("%Y")
+                date = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime("%Y")
 
         except UnidentifiedImageError: # If file is not a photo
             try: 
-                date = datetime.datetime.fromtimestamp(os.path.getctime(path + "\\" + file)).strftime("%Y")
+                date = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime("%Y")
             except PermissionError as e:
                 messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
                 errors += 1
@@ -235,7 +238,7 @@ def sortByEXIF(path, pathto):
             # Move file to folder
             if keepOGFiles.get():
                 try:
-                    shutil.copy2(path + "\\" + file, pathto + "\\" + date + "\\" + file)
+                    shutil.copy2(file, pathto + "\\" + date + "\\" + file)
                 except shutil.Error as e :
                     messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
                     errors += 1
@@ -244,7 +247,7 @@ def sortByEXIF(path, pathto):
                     errors += 1
             else:    
                 try:    
-                    shutil.move(path + "\\" + file, pathto + "\\" + date + "\\" + file, copy_function= shutil.copy2)
+                    shutil.move(file, pathto + "\\" + date + "\\" + file, copy_function= shutil.copy2)
                 except shutil.Error as e:
                     messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
                     errors += 1
