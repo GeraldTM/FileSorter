@@ -16,22 +16,26 @@
 import datetime,json, shutil, tkinter as tk, os
 from posixpath import abspath
 
-#from tkinterdnd2 import DND_FILES, TkinterDnD
+from tkinterdnd2 import DND_FILES, TkinterDnD
 from tkinter import *
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from PIL import Image,UnidentifiedImageError
 
-
+if os.name == "nt":
+    newline = "\r\n"
+else:
+    newline = "\n"
 
 
 # Set up tkinter window
-app = tk.Tk()
+app = TkinterDnD.Tk()
 app.title("FileSorter")
 app.iconbitmap(True,"icon.ico")
 app.resizable(width=False, height=False)
 
 selectedSortType = StringVar()
 selectedSortType.set("time")
+fileListValue = StringVar()
 keepOGFiles = BooleanVar()
 
 # Init File Frame
@@ -46,6 +50,7 @@ ttk.Label(fileFrame, text="Files to sort:").grid(column=0, row=0, sticky=W)
 pathframe = ttk.Frame(fileFrame, padding="3 3 12 12")
 pathframe.grid(column=0, row=2, sticky=(W, E))
 ttk.Label(pathframe, text="Path: ").grid(column=1, row=0, sticky=W)
+ttk.Button(pathframe, text="Browse", command=lambda: pathEntry.insert(0, filedialog.askdirectory())).grid(column=3, row=0, sticky=E)
 pathEntry = ttk.Entry(pathframe, width=50)
 pathEntry.grid(column=2, row=0, sticky=(W, E))
 
@@ -53,6 +58,7 @@ pathEntry.grid(column=2, row=0, sticky=(W, E))
 sortFrame = ttk.Frame(fileFrame, padding="3 3 12 12")
 sortFrame.grid(column=0, row=3, sticky=(W, E))
 ttk.Label(sortFrame, text="Sort to: ").grid(column=0, row=0, sticky=W)
+ttk.Button(sortFrame, text="Browse", command=lambda: sortPath.insert(0, filedialog.askdirectory())).grid(column=2, row=0, sticky=E)
 sortPath = ttk.Entry(sortFrame, width=50)
 sortPath.grid(column=1, row=0, sticky=(W, E))
 
@@ -72,14 +78,54 @@ keepOGButton.grid(column=0, row=3, sticky=W)
 
 buttonframe = ttk.Frame(settingsFrame, padding="3 3 12 12")
 buttonframe.grid(column=0, row=3, sticky=(S,W,E), columnspan= 2)
-ttk.Button(buttonframe, text="Sort", command=lambda: sortByPath(pathEntry.get(), sortPath.get())).grid(column=1, row=0, sticky=(E,S))
+ttk.Button(buttonframe, text="Sort", command=lambda: sort()).grid(column=1, row=0, sticky=(E,S))
 ttk.Label(buttonframe, text="Copyright © GeraldTM 2022").grid(column=0, row=0, sticky=(W,S))
 
+fileList = tk.Listbox(fileFrame, width=75, height=30, listvariable = fileListValue)
+fileList.insert(0,"drop files here")
+fileList.drop_target_register(DND_FILES)
+fileList.dnd_bind('<<Drop>>', lambda e: datatolist(e.data))
+fileList.grid(column=0, row=1, sticky=(N, W, E, S))
+
+def datatolist(data):
+    dlist = str(data.replace("{", "").replace("}", ",").replace("'", "").replace('"', "")).split(",")
+    iteration = 0
+    for e in dlist:
+        if (fileList.get(0) == "drop files here"):
+            fileList.delete(0)
+        fileList.insert(tk.END, e)
+
+def sort():
+    if (pathEntry.get() == "" and fileListValue.get() == ""):
+        messagebox.showerror("Error", "No files to sort!")
+    elif(pathEntry.get() == "" and fileListValue.get() != ""):
+        sortByList(fileListValue.get(), sortPath.get())
+    elif(pathEntry.get() != "" and fileListValue.get() == ""):
+        sortByPath(pathEntry.get(), sortPath.get())
+    elif (pathEntry.get() != "" and fileListValue.get() != ""):
+        sortByList(fileListValue.get(), sortPath.get())
+        sortByPath(pathEntry.get(), sortPath.get())
+        
+
+def sortByList(files, pathto):
+    if(pathto == ""):
+        messagebox.showerror("Error", "No path to sort to!")
+        
+    else:
+        if(selectedSortType.get() == "time"):
+            sortByYear(files, pathto)
+        elif(selectedSortType.get() == "photo"):
+            sortByEXIF()
+        elif(selectedSortType.get() == "name"):
+            sortByName()
+            
 def listdirpath(path):
     return [str(os.path.join(path, f)) for f in os.listdir(path)]
 
 def sortByPath(path, pathto):
     files = listdirpath(path)
+    if(pathto.get() == ""):
+        pathto = pathEntry.get()
     if(selectedSortType.get() == "time"):
         sortByYear(files, pathto)
     elif(selectedSortType.get() == "photo"):
@@ -106,11 +152,11 @@ def sortByYear(files, pathto):
     # Sort files
     errors = 0
     for file in files:
-        #Get photo taken date
+        print(file)
         try: 
             date = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime("%Y")
         except PermissionError as e:
-            messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
+            messagebox.showerror("Error", "Permission denied!" + newline + str(e))
             errors += 1
             continue
         
@@ -125,40 +171,35 @@ def sortByYear(files, pathto):
                     os.mkdir(pathto)
                     os.mkdir(pathto + "\\" + date)
                 except FileNotFoundError as e:
-                    messagebox.showerror("Error", "Path not found!" + pathto +"\n" + e)
+                    messagebox.showerror("Error", "Path not found!" + pathto +newline + e)
                     break
-                blacklist.append(pathto + "\\" + date)
-                
             except PermissionError as e:
-                messagebox.showerror("Error", "Permission denied!" + "\n" + e)
+                messagebox.showerror("Error", "Permission denied!" + newline + e)
                 break
+            blacklist.append(pathto + "\\" + date)
             # Move file to folder
-            if keepOGFiles.get():
+        if keepOGFiles.get():
                 try:
-                    shutil.copy2(file, pathto + "\\" + date + "\\" + file)
+                    shutil.copy2(file, pathto + "\\" + date + "\\" + os.path.basename(file))
                 except PermissionError:
                     try: 
-                        shutil.copytree(file, pathto + "\\" + date + "\\" + file)
+                        shutil.copytree(file, pathto + "\\" + date + "\\" + os.path.basename(file))
                     except shutil.Error as e:
-                        messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
+                        messagebox.showerror("Error", "Failed to move file: " + os.path.basename(file) + " to " + pathto + "\\" + date + "\\" + os.path.basename(file) + "newline newline" + str(e))
                         errors += 1
                 except shutil.Error as e :
-                    messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
+                    messagebox.showerror("Error", "Failed to move file: " + os.path.basename(file) + " to " + pathto + "\\" + date + "\\" + os.path.basename(file) + "newline newline" + str(e))
                     errors += 1
                 
-            else:    
-                try:    
-                    shutil.move(file, pathto + "\\" + date + "\\" + file, copy_function= shutil.copy2)
-                except shutil.Error as e:
-                    messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
-                    errors += 1
-                # Update progress bar
-            sortProgress["value"] += progressInterval
-            sortProgress.update()
-        else:
-            errors += 1
-            sortProgress["value"] += progressInterval
-            sortProgress.update()
+        else:    
+            try:    
+                shutil.move(file, pathto + "\\" + date + "\\" + os.path.basename(file), copy_function= shutil.copy2)
+            except shutil.Error as e:
+                messagebox.showerror("Error", "Failed to move file: " + os.path.basename(file) + " to " + pathto + "\\" + date + "\\" + os.path.basename(file) + "newline newline" + str(e))
+                errors += 1
+        sortProgress["value"] += progressInterval
+        sortProgress.update()
+
     # Reset sort to path entry
     ttk.Label(sortFrame, text="Sort to: ").grid(column=0, row=0, sticky=W)
     sortPath = ttk.Entry(sortFrame, width=50)
@@ -201,23 +242,23 @@ def sortByEXIF(files, pathto):
                 try: 
                     date = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime("%Y")
                 except PermissionError as e:
-                    messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
+                    messagebox.showerror("Error", "Permission denied!" + newline + str(e))
                     errors += 1
                     continue
             except TypeError as e:
-                #messagebox.showerror("Error", "Error reading EXIF data!" + "\n" + str(e))
+                #messagebox.showerror("Error", "Error reading EXIF data!" + newline + str(e))
                 date = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime("%Y")
 
         except UnidentifiedImageError: # If file is not a photo
             try: 
                 date = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime("%Y")
             except PermissionError as e:
-                messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
+                messagebox.showerror("Error", "Permission denied!" + newline + str(e))
                 errors += 1
                 continue
             blacklist.append(pathto + "\\" + date)
         # Create folder if it doesn't exist
-        if pathto + "//" + file not in blacklist:
+        if pathto + "//" + os.path.basename(file) not in blacklist:
             try:
                 os.mkdir(pathto + "\\" + date)
                 
@@ -228,28 +269,28 @@ def sortByEXIF(files, pathto):
                     os.mkdir(pathto)
                     os.mkdir(pathto + "\\" + date)
                 except FileNotFoundError as e:
-                    messagebox.showerror("Error", "Path not found!" + pathto +"\n" + e)
+                    messagebox.showerror("Error", "Path not found!" + pathto +newline + e)
                     break
             
             except PermissionError as e:
-                messagebox.showerror("Error", "Permission denied!" + "\n" + e)
+                messagebox.showerror("Error", "Permission denied!" + newline + e)
                 continue
 
             # Move file to folder
             if keepOGFiles.get():
                 try:
-                    shutil.copy2(file, pathto + "\\" + date + "\\" + file)
+                    shutil.copy2(file, pathto + "\\" + date + "\\" + os.path.basename(file))
                 except shutil.Error as e :
-                    messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
+                    messagebox.showerror("Error", "Failed to move file: " + os.path.basename(file) + " to " + pathto + "\\" + date + "\\" + os.path.basename(file) + "newline newline" + str(e))
                     errors += 1
                 except PermissionError as e:
-                    messagebox.showerror("Error", "Permission denied!" + "\n" + str(e))
+                    messagebox.showerror("Error", "Permission denied!" + newline + str(e))
                     errors += 1
             else:    
                 try:    
-                    shutil.move(file, pathto + "\\" + date + "\\" + file, copy_function= shutil.copy2)
+                    shutil.move(file, pathto + "\\" + date + "\\" + os.path.basename(file), copy_function= shutil.copy2)
                 except shutil.Error as e:
-                    messagebox.showerror("Error", "Failed to move file: " + file + " to " + pathto + "\\" + date + "\\" + file + "\n \n" + str(e))
+                    messagebox.showerror("Error", "Failed to move file: " + os.path.basename(file) + " to " + pathto + "\\" + date + "\\" + os.path.basename(file) + "newline newline" + str(e))
                     errors += 1
                 # Update progress bar
             sortProgress["value"] += progressInterval
