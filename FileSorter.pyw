@@ -84,38 +84,53 @@ ttk.Label(buttonframe, text="Copyright © GeraldTM 2022").grid(column=0, row=0, 
 fileList = tk.Listbox(fileFrame, width=75, height=30, listvariable = fileListValue)
 fileList.insert(0,"drop files here")
 fileList.drop_target_register(DND_FILES)
-fileList.dnd_bind('<<Drop>>', lambda e: datatolist(e.data))
+fileList.dnd_bind('<<Drop>>', lambda e: dataToOutput(e.data))
 fileList.grid(column=0, row=1, sticky=(N, W, E, S))
 
-def datatolist(data):
-    dlist = str(data.replace("{", "").replace("}", ",").replace("'", "").replace('"', "")).split(",")
-    iteration = 0
+def dataToOutput(data):
+    "".join(data)
+    dlist = str(data.replace("{", "").replace("}", ",").replace("'", "").replace('"', "").replace("(","")).split(",")
     for e in dlist:
         if (fileList.get(0) == "drop files here"):
             fileList.delete(0)
         fileList.insert(tk.END, e)
 
+def dataToList(data):
+    dlist = data.replace("{", "").replace("'", "").replace('"', "").replace("(","").replace(")","")
+    print(dlist)
+    dlist = "".join(dlist)
+    dlist = list(dlist.split(",  "))
+    dlist[len(dlist)-1] = dlist[len(dlist)-1].replace(", ", "")
+    return dlist
+
+        
+
+
 def sort():
-    if (pathEntry.get() == "" and fileListValue.get() == ""):
+    if (pathEntry.get() == "" and fileListValue.get() == "('drop files here',)"):
         messagebox.showerror("Error", "No files to sort!")
-    elif(pathEntry.get() == "" and fileListValue.get() != ""):
+    elif(pathEntry.get() == "" and fileListValue.get() != "('drop files here',)"):
         sortByList(fileListValue.get(), sortPath.get())
-    elif(pathEntry.get() != "" and fileListValue.get() == ""):
+    elif(pathEntry.get() != "" and fileListValue.get() == "('drop files here',)"):
         sortByPath(pathEntry.get(), sortPath.get())
-    elif (pathEntry.get() != "" and fileListValue.get() != ""):
+    elif (pathEntry.get() != "" and fileListValue.get() != "('drop files here',)"):
         sortByList(fileListValue.get(), sortPath.get())
         sortByPath(pathEntry.get(), sortPath.get())
+    fileList.delete(0, tk.END)
+    fileList.insert(0, "drop files here")
         
 
 def sortByList(files, pathto):
+    files = dataToList(files)
+   
+    print(files)
     if(pathto == ""):
         messagebox.showerror("Error", "No path to sort to!")
-        
     else:
         if(selectedSortType.get() == "time"):
             sortByYear(files, pathto)
         elif(selectedSortType.get() == "photo"):
-            sortByEXIF()
+            sortByEXIF(files, pathto)
         elif(selectedSortType.get() == "name"):
             sortByName()
             
@@ -124,7 +139,7 @@ def listdirpath(path):
 
 def sortByPath(path, pathto):
     files = listdirpath(path)
-    if(pathto.get() == ""):
+    if(pathto == ""):
         pathto = pathEntry.get()
     if(selectedSortType.get() == "time"):
         sortByYear(files, pathto)
@@ -148,15 +163,20 @@ def sortByYear(files, pathto):
     # Init progress bar
     ttk.Label(sortFrame, text="Sorting: ").grid(column=0, row=0, sticky=W)
     sortProgress = ttk.Progressbar(sortFrame, orient="horizontal", length=200, mode="determinate")
-    sortProgress.grid(column=1, row=0, sticky=(W, E))
+    sortProgress.grid(column=1, row=0, sticky=(W,E))
     # Sort files
     errors = 0
-    for file in files:
+    for file in list(files):
         print(file)
+        
         try: 
             date = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime("%Y")
         except PermissionError as e:
             messagebox.showerror("Error", "Permission denied!" + newline + str(e))
+            errors += 1
+            continue
+        except FileNotFoundError as e:
+            messagebox.showerror("Error", "File not found!" + newline + str(e))
             errors += 1
             continue
         
@@ -213,6 +233,7 @@ def sortByYear(files, pathto):
     doneWindow.rowconfigure(0, weight=1)
     ttk.Label(doneFrame, text="Sorting Complete! Sorted " + str(len(files)- errors) + " files.").grid(column=0, row=1, sticky=W)
     ttk.Button(doneFrame, text="Close", command=doneWindow.destroy).grid(column=0, row=3, sticky=E)
+    
 
 
 
@@ -233,7 +254,7 @@ def sortByEXIF(files, pathto):
     sortProgress.grid(column=1, row=0, sticky=(W, E))
     # Sort files
     errors = 0
-    for file in files:
+    for file in list(files):
         #Get photo taken date
         try:
             try: 
